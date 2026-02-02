@@ -1,0 +1,14 @@
+C:\Users\sebas\Desktop\sd\es\es\bin\Debug\net9.0\es.exe
+C:\Users\sebas\Desktop\sd\es\es\bin\Debug\net9.0\es.deps.json
+C:\Users\sebas\Desktop\sd\es\es\bin\Debug\net9.0\es.runtimeconfig.json
+C:\Users\sebas\Desktop\sd\es\es\bin\Debug\net9.0\es.dll
+C:\Users\sebas\Desktop\sd\es\es\bin\Debug\net9.0\es.pdb
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\es.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\es.AssemblyInfoInputs.cache
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\es.AssemblyInfo.cs
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\es.csproj.CoreCompileInputs.cache
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\es.dll
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\refint\es.dll
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\es.pdb
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\es.genruntimeconfig.cache
+C:\Users\sebas\Desktop\sd\es\es\obj\Debug\net9.0\ref\es.dll
