@@ -57,9 +57,9 @@ namespace es
                     {
                         int numeroMembri = clientidelgruppo(gruppoIngresso);
                         
-                        bool haMetallo = hametallo(gruppoIngresso);
+                        bool metallo = hametallo(gruppoIngresso);
 
-                        if (haMetallo) 
+                        if (metallo) 
                         {
                             WriteLine($"gruppo {gruppoIngresso} ha metallo vengono espulsi. controlli non superati");
                             token_Vari[gruppoIngresso].Cancel();
