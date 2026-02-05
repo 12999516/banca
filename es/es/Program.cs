@@ -4,165 +4,126 @@ namespace es
 {
     internal class Program
     {
-        static List<Ccliente> lista_clienti;
-        static int cabinCapacity = 5; // N elements
+        static List<Ccliente> lista_clienti = new List<Ccliente>();
+        static long postiCabina = 5; 
+        static long postiBanca = 5; 
 
         static async Task Main(string[] args)
         {
-            int max_clienti = 5;
-            SemaphoreSlim[] gruppi = new SemaphoreSlim[5];
+            int max_membri_gruppo = 5;
+            int num_gruppi = 5;
+            SemaphoreSlim[] sem_gruppi = new SemaphoreSlim[num_gruppi];
+            object lck = new object();
             SemaphoreSlim camera_blindata = new SemaphoreSlim(0); 
             List<Task> lista_task = new List<Task>();
             lista_clienti = new List<Ccliente>();
-            CancellationTokenSource[] token_Vari = new CancellationTokenSource[5];
+            CancellationTokenSource[] token_Vari = new CancellationTokenSource[num_gruppi];
+            int gruppoIngresso = 0;
+            int gruppoUscita = 0;
 
-            for (int i = 0; i < gruppi.Length; i++)
+            for (int i = 0; i < num_gruppi; i++)
             {
-                gruppi[i] = new SemaphoreSlim(0);
+                sem_gruppi[i] = new SemaphoreSlim(0);
                 token_Vari[i] = new CancellationTokenSource();
             }
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < num_gruppi; i++)
             {
                 Random rnd = new Random(Environment.TickCount + i);
-                int q_C_G = rnd.Next(1, max_clienti + 1); 
+                int q_C_G = rnd.Next(1, max_membri_gruppo + 1); 
                 for(int j = 0; j < q_C_G; j++)
                 {
-                    bool metallo = rnd.Next(0, 2) == 1;
-                    lista_clienti.Add(new Ccliente(i, metallo, gruppi[i], camera_blindata, token_Vari[i].Token));
+                    bool metallo = rnd.Next(0, 21) == 1;
+                    lista_clienti.Add(new Ccliente(i, j,  metallo, sem_gruppi[i], camera_blindata, token_Vari[i].Token));
                 }
+            }
+
+            for(int i = 0; i < 5; i++)
+            {
+                WriteLine($"Gruppo {i} ha {clientidelgruppo(i)} clienti.");
             }
 
             for(int i = 0; i < lista_clienti.Count; i++)
             {
                 lista_task.Add(lista_clienti[i].fai_operazione());
-            }
-
-            bool cabinaLibera = true;
-            int gruppoInCabina = -1; 
-            bool inUscita = false; 
-
+            }   
+            
             while (lista_clienti.Count > 0)
             {
-                await Task.Delay(100);
-                
-                if (cabinaLibera)
-                {
 
-                    int gruppoUscita = TrovaGruppoPronto(3);
-                    if (gruppoUscita != -1)
+                if (Interlocked.Read(ref postiCabina) > 0)
+                {
+                    if (gruppoIngresso < num_gruppi)
                     {
-                         WriteLine($"Apertura cabina verso l'interno per gruppo {gruppoUscita} (Uscita).");
-                         inUscita = true;
-                         gruppoInCabina = gruppoUscita;
-                         cabinaLibera = false;
-                         int count = ContaClientiGruppo(gruppoUscita);
-                         gruppi[gruppoUscita].Release(count);
+                        int numeroMembri = clientidelgruppo(gruppoIngresso);
+                        
+                        bool haMetallo = hametallo(gruppoIngresso);
+
+                        if (haMetallo) 
+                        {
+                            WriteLine($"gruppo {gruppoIngresso} ha metallo vengono espulsi. controlli non superati");
+                            token_Vari[gruppoIngresso].Cancel();
+                            rimuoviclientidallalista(gruppoIngresso); 
+
+                            gruppoUscita++;
+                        }
+                        else
+                        {
+                            WriteLine($"gruppo {gruppoIngresso} non ha metallo possono entrare in banca");
+                            
+                            sem_gruppi[gruppoIngresso].Release(numeroMembri); 
+                            camera_blindata.Release(numeroMembri);
+                            
+                            
+                            lock(lck)
+                            {
+                                postiCabina = 0;
+                                postiBanca = 0;
+                            }
+                        }
+
+                        gruppoIngresso++;
                     }
                     else
                     {
-                        int gruppoIngresso = TrovaGruppoPronto(0);
-                        if (gruppoIngresso != -1)
-                        {
-                            WriteLine($"Apertura cabina verso l'esterno per gruppo {gruppoIngresso} (Ingresso).");
-                            inUscita = false;
-                            gruppoInCabina = gruppoIngresso;
-                            cabinaLibera = false;
-                            int count = ContaClientiGruppo(gruppoIngresso);
-                            gruppi[gruppoIngresso].Release(count);
-                        }
+                       await Task.Delay(250);
                     }
                 }
                 else
                 {
-                    
-                    if (inUscita)
+                     
+                    if (gruppoUscita < gruppoIngresso) 
                     {
-                        if (TuttiNelStato(gruppoInCabina, 4))
-                        {
-                            WriteLine($"Gruppo {gruppoInCabina} uscito definitivamente.");
-                            cabinaLibera = true;
-                            gruppoInCabina = -1;
-                            
-                            RimuoviClientiStato(4);
-                        }
-                    }
-                    else
-                    {
-                        if (TuttiNelStato(gruppoInCabina, 1))
-                        {
-                            WriteLine($"Gruppo {gruppoInCabina} in cabina. Controllo metalli...");
-                            if (GruppoHaMetallo(gruppoInCabina))
-                            {
-                                WriteLine($"METALLO RILEVATO nel gruppo {gruppoInCabina}! Espulsione.");
-                                token_Vari[gruppoInCabina].Cancel();
-                                
-                                cabinaLibera = true;
-                                gruppoInCabina = -1;
-                                
-                                RimuoviClientiGruppo(gruppoInCabina);
-                            }
-                            else
-                            {
-                                WriteLine($"Gruppo {gruppoInCabina} pulito. Entrano nella camera blindata.");
-                                int count = ContaClientiGruppo(gruppoInCabina);
-                                camera_blindata.Release(count);
-                                cabinaLibera = true;
-                                gruppoInCabina = -1;
-                            }
-                        }
+                         int idUscita = gruppoUscita;
+                         
+                         if (clientidelgruppo(idUscita) > 0)
+                         {
+                             WriteLine($"gruppo {idUscita} esce dalla banca");
+                             rimuoviclientidallalista(idUscita);
+                         }
+
+                         gruppoUscita++;
+
+                         lock (lck)
+                         {
+                            postiCabina = 5;
+                            postiBanca = 5;
+                         }
+
+                        WriteLine("banca libera per nuovo accesso");
                     }
                 }
-            }
-            
-            WriteLine("Simulazione terminata.");
-        }
-
-        static void RimuoviClientiStato(int stato)
-        {
-            for (int i = lista_clienti.Count - 1; i >= 0; i--)
-            {
-                if (lista_clienti[i].Stato == stato)
-                {
-                    lista_clienti.RemoveAt(i);
-                }
-            }
-        }
-
-        static void RimuoviClientiGruppo(int idGruppo)
-        {
-             for (int i = lista_clienti.Count - 1; i >= 0; i--)
-            {
-                if (lista_clienti[i].dammi_idgruppo() == idGruppo)
-                {
-                    lista_clienti.RemoveAt(i);
-                }
-            }
-        }
-
-        static bool TuttiNelStato(int idGruppo, int statoTarget)
-        {
-            int totali = 0;
-            int corretti = 0;
-            for(int i = 0; i < lista_clienti.Count; i++) 
-            {
-                if (lista_clienti[i].dammi_idgruppo() == idGruppo)
-                {
-                    totali++;
-                    if (lista_clienti[i].Stato == statoTarget)
-                    {
-                        corretti++;
-                    }
-                }
+                
+                await Task.Delay(750);
             }
 
-            if (totali == 0) return true;
-            return totali == corretti;
+            await Task.WhenAll(lista_task);
+            WriteLine("finiti i gruppo la banca chiude");
         }
 
-        static bool GruppoHaMetallo(int idGruppo)
+        static bool hametallo(int idGruppo)
         {
-            for (int i = 0; i < lista_clienti.Count; i++)
+            for(int i = 0; i < lista_clienti.Count; i ++)
             {
                 if (lista_clienti[i].dammi_idgruppo() == idGruppo && lista_clienti[i].dimmi_metallo())
                 {
@@ -172,10 +133,11 @@ namespace es
             return false;
         }
 
-        static int ContaClientiGruppo(int idGruppo)
+        static int clientidelgruppo(int idGruppo)
         {
             int count = 0;
-            for (int i = 0; i < lista_clienti.Count; i++)
+
+            for(int i = 0; i < lista_clienti.Count; i++)
             {
                 if (lista_clienti[i].dammi_idgruppo() == idGruppo)
                 {
@@ -185,27 +147,15 @@ namespace es
             return count;
         }
 
-        static int TrovaGruppoPronto(int statoTarget)
+        static void rimuoviclientidallalista(int idGruppo)
         {
-            List<int> gruppiIds = new List<int>();
-            for (int i = 0; i < lista_clienti.Count; i++)
-            {
-                int gid = lista_clienti[i].dammi_idgruppo();
-                if (!gruppiIds.Contains(gid))
-                {
-                    gruppiIds.Add(gid);
-                }
-            }
-            gruppiIds.Sort();
-
-            foreach(int gid in gruppiIds)
-            {
-                if (TuttiNelStato(gid, statoTarget))
-                {
-                    return gid;
-                }
-            }
-            return -1;
+             for(int i = lista_clienti.Count - 1; i >= 0; i--)
+             {
+                 if (lista_clienti[i].dammi_idgruppo() == idGruppo)
+                 {
+                     lista_clienti.RemoveAt(i);
+                 }
+             }
         }
     }
 }
