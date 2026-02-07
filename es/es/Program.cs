@@ -12,7 +12,7 @@ namespace es
             int num_gruppi = 5;
             SemaphoreSlim[] sem_gruppi = new SemaphoreSlim[num_gruppi];
             object lck = new object();
-            SemaphoreSlim camera_blindata = new SemaphoreSlim(0); 
+            SemaphoreSlim banca = new SemaphoreSlim(0); 
             List<Task> lista_task = new List<Task>();
             lista_clienti = new List<Ccliente>();
             CancellationTokenSource[] token_Vari = new CancellationTokenSource[num_gruppi];
@@ -20,7 +20,7 @@ namespace es
             Queue<int> codaIngresso = new Queue<int>();
             Queue<int> codaUscita = new Queue<int>();
             bool versoIngresso = true;
-            bool bancaOccupata = false;
+            bool cabinaOccupata = false;
 
 
             for (int i = 0; i < num_gruppi; i++)
@@ -38,7 +38,7 @@ namespace es
                 for(int j = 0; j < q_C_G; j++)
                 {
                     bool metallo = rnd.Next(0, 21) == 1;
-                    lista_clienti.Add(new Ccliente(i, j,  metallo, sem_gruppi[i], camera_blindata, token_Vari[i].Token));
+                    lista_clienti.Add(new Ccliente(i, j,  metallo, sem_gruppi[i], banca, token_Vari[i].Token));
                 }
             }
 
@@ -67,7 +67,7 @@ namespace es
             {
                 if (versoIngresso)
                 {
-                    if (!bancaOccupata && codaIngresso.Count > 0)
+                    if (!cabinaOccupata && codaIngresso.Count > 0)
                     {
                         int idGruppo = codaIngresso.Peek();
                         int numeroMembri = clientidelgruppo(idGruppo);
@@ -82,13 +82,13 @@ namespace es
                         }
                         else
                         {
-                            WriteLine($"gruppo {idGruppo} non ha metallo, entra in banca");
+                            WriteLine($"gruppo {idGruppo} non ha metallo, entra in cabina");
                             sem_gruppi[idGruppo].Release(numeroMembri);
-                            camera_blindata.Release(numeroMembri);
+                            banca.Release(numeroMembri);
                             
                             codaIngresso.Dequeue();
                             codaUscita.Enqueue(idGruppo);
-                            bancaOccupata = true;
+                            cabinaOccupata = true;
                         }
                     }
 
@@ -96,18 +96,18 @@ namespace es
                 }
                 else
                 {
-                    if (bancaOccupata && codaUscita.Count > 0)
+                    if (cabinaOccupata && codaUscita.Count > 0)
                     {
                         int idUscita = codaUscita.Peek();
                         WriteLine($"aspettando che il gruppo {idUscita} finisca le operazioni");
 
                         await Task.WhenAll(compitiPerGruppo[idUscita]);
 
-                        WriteLine($"gruppo {idUscita} ha finito ed esce dalla banca");
+                        WriteLine($"gruppo {idUscita} ha finito ed esce dalla cabina");
                         rimuoviclientidallalista(idUscita);
                         codaUscita.Dequeue();
-                        bancaOccupata = false;
-                        WriteLine("banca libera per nuovo accesso");
+                        cabinaOccupata = false;
+                        WriteLine("cabina libera per nuovo accesso");
                     }
                     
                     versoIngresso = true;

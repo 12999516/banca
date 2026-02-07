@@ -8,7 +8,7 @@ namespace es
         int idcliente;
         bool metallo;
         SemaphoreSlim sem_gruppo;
-        SemaphoreSlim sem_camerablindata;
+        SemaphoreSlim sem_banca;
         CancellationToken cts;
         Random rnd;
 
@@ -17,42 +17,42 @@ namespace es
             idcliente = 0;
             idgruppo = -1;
             metallo = false;
-            sem_camerablindata = new SemaphoreSlim(0, 0);
+            sem_banca = new SemaphoreSlim(0, 0);
             sem_gruppo = new SemaphoreSlim(0, 0);
             cts = CancellationToken.None;
         }
 
-        public Ccliente(int idgruppo, int idcliente, bool metallo, SemaphoreSlim sem_gruppo, SemaphoreSlim sem_camerablindata, CancellationToken cts)
+        public Ccliente(int idgruppo, int idcliente, bool metallo, SemaphoreSlim sem_gruppo, SemaphoreSlim sem_banca, CancellationToken cts)
         {
             this.idgruppo = idgruppo;
             this.idcliente = idcliente + 1;
             this.metallo = metallo;
             this.sem_gruppo = sem_gruppo;
-            this.sem_camerablindata = sem_camerablindata;
+            this.sem_banca = sem_banca;
             this.cts = cts;
             rnd = new Random(Environment.TickCount);
-        }
-
-        private async Task entrabanca()
-        {
-            Task.Delay(rnd.Next(100, 201)).Wait();
-            await sem_gruppo.WaitAsync(cts);
-            WriteLine($"cliente {idcliente} del gruppo {idgruppo} è entrato nella banca");
         }
 
         private async Task entracabina()
         {
             Task.Delay(rnd.Next(100, 201)).Wait();
-            await sem_camerablindata.WaitAsync(cts);
-            WriteLine($"cliente {idcliente} del gruppo {idgruppo} è entrato nella camera blindata.");
+            await sem_gruppo.WaitAsync(cts);
+            WriteLine($"cliente {idcliente} del gruppo {idgruppo} è entrato nella cabina");
+        }
+
+        private async Task entrabanca()
+        {
+            Task.Delay(rnd.Next(100, 201)).Wait();
+            await sem_banca.WaitAsync(cts);
+            WriteLine($"cliente {idcliente} del gruppo {idgruppo} è entrato nella banca.");
         }
 
         public async Task fai_operazione()
         {
             try
             {
-                await entrabanca();
                 await entracabina();
+                await entrabanca();
 
                 WriteLine($"cliente {idcliente} del gruppo {idgruppo} sta facendo l'operazione");
                 await Task.Delay(1000); 
