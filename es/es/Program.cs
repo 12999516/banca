@@ -5,8 +5,6 @@ namespace es
     internal class Program
     {
         static List<Ccliente> lista_clienti = new List<Ccliente>();
-        static long postiCabina = 5; 
-        static long postiBanca = 5; 
 
         static async Task Main(string[] args)
         {
@@ -18,14 +16,20 @@ namespace es
             List<Task> lista_task = new List<Task>();
             lista_clienti = new List<Ccliente>();
             CancellationTokenSource[] token_Vari = new CancellationTokenSource[num_gruppi];
-            int gruppoIngresso = 0;
-            int gruppoUscita = 0;
+            List<Task>[] compitiPerGruppo = new List<Task>[num_gruppi];
+            Queue<int> codaIngresso = new Queue<int>();
+            Queue<int> codaUscita = new Queue<int>();
+            bool versoIngresso = true;
+            bool bancaOccupata = false;
+
 
             for (int i = 0; i < num_gruppi; i++)
             {
                 sem_gruppi[i] = new SemaphoreSlim(0);
                 token_Vari[i] = new CancellationTokenSource();
+                compitiPerGruppo[i] = new List<Task>();
             }
+
 
             for (int i = 0; i < num_gruppi; i++)
             {
@@ -38,83 +42,78 @@ namespace es
                 }
             }
 
-            for(int i = 0; i < 5; i++)
+
+            for (int i = 0; i < num_gruppi; i++)
             {
-                WriteLine($"Gruppo {i} ha {clientidelgruppo(i)} clienti.");
+                codaIngresso.Enqueue(i);
             }
+
+
+            for(int i = 0; i < num_gruppi; i++)
+            {
+                WriteLine($"gruppo {i} ha {clientidelgruppo(i)} clienti");
+            }
+
 
             for(int i = 0; i < lista_clienti.Count; i++)
             {
-                lista_task.Add(lista_clienti[i].fai_operazione());
+                Task t = lista_clienti[i].fai_operazione();
+                lista_task.Add(t);
+                compitiPerGruppo[lista_clienti[i].dammi_idgruppo()].Add(t);
             }   
-            
+
+
             while (lista_clienti.Count > 0)
             {
-
-                if (Interlocked.Read(ref postiCabina) > 0)
+                if (versoIngresso)
                 {
-                    if (gruppoIngresso < num_gruppi)
+                    if (!bancaOccupata && codaIngresso.Count > 0)
                     {
-                        int numeroMembri = clientidelgruppo(gruppoIngresso);
-                        
-                        bool metallo = hametallo(gruppoIngresso);
+                        int idGruppo = codaIngresso.Peek();
+                        int numeroMembri = clientidelgruppo(idGruppo);
+                        bool metallo = hametallo(idGruppo);
 
-                        if (metallo) 
+                        if (metallo)
                         {
-                            WriteLine($"gruppo {gruppoIngresso} ha metallo vengono espulsi. controlli non superati");
-                            token_Vari[gruppoIngresso].Cancel();
-                            rimuoviclientidallalista(gruppoIngresso); 
-
-                            gruppoUscita++;
+                            WriteLine($"gruppo {idGruppo} ha metallo e viene espulso");
+                            token_Vari[idGruppo].Cancel();
+                            rimuoviclientidallalista(idGruppo);
+                            codaIngresso.Dequeue();
                         }
                         else
                         {
-                            WriteLine($"gruppo {gruppoIngresso} non ha metallo possono entrare in banca");
-                            
-                            sem_gruppi[gruppoIngresso].Release(numeroMembri); 
+                            WriteLine($"gruppo {idGruppo} non ha metallo, entra in banca");
+                            sem_gruppi[idGruppo].Release(numeroMembri);
                             camera_blindata.Release(numeroMembri);
                             
-                            
-                            lock(lck)
-                            {
-                                postiCabina = 0;
-                                postiBanca = 0;
-                            }
+                            codaIngresso.Dequeue();
+                            codaUscita.Enqueue(idGruppo);
+                            bancaOccupata = true;
                         }
+                    }
 
-                        gruppoIngresso++;
-                    }
-                    else
-                    {
-                       await Task.Delay(250);
-                    }
+                    versoIngresso = false;
                 }
                 else
                 {
-                     
-                    if (gruppoUscita < gruppoIngresso) 
+                    if (bancaOccupata && codaUscita.Count > 0)
                     {
-                         int idUscita = gruppoUscita;
-                         
-                         if (clientidelgruppo(idUscita) > 0)
-                         {
-                             WriteLine($"gruppo {idUscita} esce dalla banca");
-                             rimuoviclientidallalista(idUscita);
-                         }
+                        int idUscita = codaUscita.Peek();
+                        WriteLine($"aspettando che il gruppo {idUscita} finisca le operazioni");
 
-                         gruppoUscita++;
+                        await Task.WhenAll(compitiPerGruppo[idUscita]);
 
-                         lock (lck)
-                         {
-                            postiCabina = 5;
-                            postiBanca = 5;
-                         }
-
+                        WriteLine($"gruppo {idUscita} ha finito ed esce dalla banca");
+                        rimuoviclientidallalista(idUscita);
+                        codaUscita.Dequeue();
+                        bancaOccupata = false;
                         WriteLine("banca libera per nuovo accesso");
                     }
+                    
+                    versoIngresso = true;
                 }
                 
-                await Task.Delay(750);
+                await Task.Delay(250);
             }
 
             await Task.WhenAll(lista_task);

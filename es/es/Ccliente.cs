@@ -10,6 +10,7 @@ namespace es
         SemaphoreSlim sem_gruppo;
         SemaphoreSlim sem_camerablindata;
         CancellationToken cts;
+        Random rnd;
 
         public Ccliente()
         {
@@ -29,16 +30,19 @@ namespace es
             this.sem_gruppo = sem_gruppo;
             this.sem_camerablindata = sem_camerablindata;
             this.cts = cts;
+            rnd = new Random(Environment.TickCount);
         }
 
         private async Task entrabanca()
         {
+            Task.Delay(rnd.Next(100, 201)).Wait();
             await sem_gruppo.WaitAsync(cts);
             WriteLine($"cliente {idcliente} del gruppo {idgruppo} è entrato nella banca");
         }
 
         private async Task entracabina()
         {
+            Task.Delay(rnd.Next(100, 201)).Wait();
             await sem_camerablindata.WaitAsync(cts);
             WriteLine($"cliente {idcliente} del gruppo {idgruppo} è entrato nella camera blindata.");
         }
@@ -51,7 +55,7 @@ namespace es
                 await entracabina();
 
                 WriteLine($"cliente {idcliente} del gruppo {idgruppo} sta facendo l'operazione");
-                await Task.Delay(2000); 
+                await Task.Delay(1000); 
             }
             catch (OperationCanceledException)
             {
